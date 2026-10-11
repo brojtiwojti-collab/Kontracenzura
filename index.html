@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archiwum - v0.3 [GitHub API Sync]</title>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --main-bg: #ffffff;
+            --border-color: #cccccc;
+            --header-bg: #cee3f8;
+            --text-color: #222222;
+            --link-color: #0000ff;
+            --meta-color: #888888;
+            --accent-color: #ff4500;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Verdana, Arial, Helvetica, sans-serif;
+            font-size: 12px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.4;
+        }
+
+        #login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .login-box {
+            background: var(--main-bg);
+            padding: 20px;
+            border: 2px solid #666;
+            width: 320px;
+            text-align: center;
+        }
+
+        .login-box h2 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #7f9db9;
+        }
+
+        .login-box button {
+            padding: 5px 15px;
+            background: #d1d1d1;
+            border: 1px solid #999;
+            cursor: pointer;
+        }
+
+        .error-msg {
+            color: red;
+            font-size: 11px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        #main-content {
+            display: none;
+            max-width: 960px;
+            margin: 10px auto;
+            background: var(--main-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+        }
+
+        .retro-header {
+            background: var(--header-bg);
+            padding: 5px 10px;
+            border: 1px solid #999;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .retro-header h1 {
+            font-size: 16px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .user-status {
+            font-size: 11px;
+            color: #333;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 240px;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .post-item {
+            display: flex;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #ddd;
+        }
+
+        .vote-box {
+            width: 30px;
+            text-align: center;
+            margin-right: 10px;
+            color: var(--meta-color);
+            font-size: 10px;
+        }
+
+        .vote-arrow {
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .post-details {
+            flex-grow: 1;
+        }
+
+        .post-title-link {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--link-color);
+            text-decoration: none;
+        }
+
+        .post-title-link:hover {
+            text-decoration: underline;
+        }
+
+        .post-meta {
+            font-size: 10px;
+            color: var(--meta-color);
+            margin: 3px 0;
+        }
+
+        .post-body {
+            font-size: 12px;
+            margin-top: 5px;
+            white-space: pre-line;
+        }
+
+        .video-box {
+            margin-top: 8px;
+            max-width: 450px;
+        }
+
+        .video-box iframe, .video-box video {
+            width: 100%;
+            height: 250px;
+            background: #000;
+            border: 1px solid #999;
+        }
+
+        .delete-btn {
+            background: #ffcccc;
+            border: 1px solid #cc0000;
+            color: #990000;
+            padding: 2px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .delete-btn:hover {
+            background: #ff9999;
+        }
+
+        .sidebar-box {
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .sidebar-box h3 {
+            font-size: 12px;
+            font-weight: bold;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 3px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .category-menu {
+            list-style: none;
+        }
+
+        .category-menu li {
+            margin-bottom: 4px;
+        }
+
+        .category-menu button {
+            width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            color: var(--link-color);
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        .category-menu button:hover, .category-menu button.active {
+            text-decoration: underline;
+            font-weight: bold;
+        }
+
+        .admin-login-panel {
+            background: #fff;
+            border: 1px solid #999;
+            padding: 10px;
+            margin-top: 15px;
+        }
+
+        .admin-login-panel input {
+            padding: 3px;
+            margin: 3px 0 8px 0;
+            width: 100%;
+            border: 1px solid #7f9db9;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>STREFA PRYWATNA // ARCHIWUM</h2>
+            <input type="password" id="site-password" placeholder="Wpisz hasło do strony...">
+            <button onclick="verifySitePassword()">Zaloguj</button>
+            <div id="site-error" class="error-msg">Błędne hasło główne!</div>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <div class="retro-header">
+            <h1>archiwum.local // 2000s retro view</h1>
+            <div id="user-status-display" class="user-status">Tryb: Gość</div>
+        </div>
+
+        <div class="layout-grid">
+            <div>
+                <h2 id="section-heading" style="font-size: 14px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #ccc; padding-bottom: 3px;">Wypadki Drogowe</h2>
+                <div id="posts-list"></div>
+            </div>
+
+            <div>
+                <div class="sidebar-box">
+                    <h3>Kategorie</h3>
+                    <ul class="category-menu">
+                        <li><button class="active" onclick="switchCategory('wypadki', this)">📁 Wypadki Drogowe</button></li>
+                        <li><button onclick="switchCategory('ataki', this)">📁 Ataki I Zbrodnie</button></li>
+                        <li><button onclick="switchCategory('regulamin', this)">📁 Regulamin Strony (Admin Login)</button></li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-box" id="admin-management-box" style="display:none;">
+                    <h3>Panel Head-Admina</h3>
+                    <p style="font-size:10px; margin-bottom:5px;">Zarządzaj kontami administratorów:</p>
+                    <div id="admin-list-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // KONFIGURACJA GITHUB API (Wpisz swoje dane)
+        // ==========================================
+        const GITHUB_USERNAME = "TWÓJ_LOGIN_GITHUB";
+        const GITHUB_REPO = "NAZWA_REPOZYTORIUM";
+        const GITHUB_TOKEN = "TWÓJ_WYGENEROWANY_TOKEN_GITHUB";
+        // ==========================================
+
+        const SITE_PASSWORD_CORRECT = "SpecjalneAdministratorstwopl";
+
+        let adminsDB = [
+            { username: "ArthurKszx", pass: "81h829j4fh8saj", role: "head" },
+            { username: "Patryk", pass: "1249839895kfu38", role: "admin" },
+            { username: "Kubaszczon", pass: "1943jtnjgd82", role: "admin" }
+        ];
+
+        let currentDatabase = {
+            'wypadki': {
+                title: 'Wypadki Drogowe',
+                posts: [
+                    {
+                        id: 'w1',
+                        title: 'Zderzenie na skrzyżowaniu (Dashcam)',
+                        date: '10.06.2026',
+                        author: 'Archiwist_01',
+                        desc: 'Brak wymuszenia pierwszeństwa, czysta dokumentacja błędu kierowcy.',
+                        type: 'youtube',
+                        src: 'https://www.youtube.com/embed/dQw4w9WgXcQ'
+                    },
+                    {
+                        id: 'w2',
+                        title: 'Groźny poślizg na mokrej drodze',
+                        date: '02.05.2026',
+                        author: 'Archiwist_02',
+                        desc: 'Materiał archiwalny zabezpieczony przed skasowaniem.',
+                        type: 'text',
+                        src: ''
+                    }
+                ]
+            },
+            'ataki': {
+                title: 'Ataki I Zbrodnie (Polska i kraje ościenne)',
+                posts: [
+                    {
+                        id: 'a1',
+                        title: 'Informacje ze śledztwa (Przegląd mediów)',
+                        date: '11.06.2026',
+                        author: 'Redakcja',
+                        desc: 'Zestawienie i kopia artykułów na temat zdarzenia w regionie przygranicznym.',
+                        type: 'text',
+                        src: ''
+                    }
+                ]
+            },
+            'regulamin': {
+                title: 'Regulamin Strony & Logowanie Admina',
+                posts: [
+                    {
+                        id: 'r1',
+                        title: 'Zasady korzystania z archiwum',
+                        date: '01.01.2026',
+                        author: 'ArthurKszx',
+                        desc: '1. Żadnego kontentu typu GORE (krwi, drastycznych okaleczeń).\n2. Strona wyłącznie do celów archiwizacyjnych/edukacyjnych.\n3. Bezwzględny zakaz wynoszenia materiałów na zewnątrz.\n\n[ PONIŻEJ ZNAJDUJE SIĘ PANEL LOGOWANIA DLA ADMINISTRACJI ]',
+                        type: 'text',
+                        src: ''
+                    }
+                ]
+            }
+        };
+
+        let activeCategory = 'wypadki';
+        let loggedInAdmin = JSON.parse(localStorage.getItem('active_admin')) || null;
+
+        window.onload = function() {
+            if (sessionStorage.getItem("site_unlocked") === "true") {
+                unlockSiteUI();
+            }
+            document.getElementById("site-password").addEventListener("keypress", function(e) {
+                if (e.key === 'Enter') verifySitePassword();
+            });
+        };
+
+        function verifySitePassword() {
+            const val = document.getElementById("site-password").value;
+            if (val === SITE_PASSWORD_CORRECT) {
+                sessionStorage.setItem("site_unlocked", "true");
+                unlockSiteUI();
+            } else {
+                document.getElementById("site-error").style.display = "block";
+            }
+        }
+
+        function unlockSiteUI() {
+            document.getElementById("login-overlay").style.display = "none";
+            document.getElementById("main-content").style.display = "block";
+            updateUserStatusDisplay();
+            renderCategory(activeCategory);
+        }
+
+        function switchCategory(catKey, btnElem) {
+            document.querySelectorAll('.category-menu button').forEach(b => b.classList.remove('active'));
+            if(btnElem) btnElem.classList.add('active');
+            activeCategory = catKey;
+            renderCategory(catKey);
+        }
+
+        function renderCategory(catKey) {
+            const catData = currentDatabase[catKey];
+            document.getElementById('section-heading').innerText = catData.title;
+            
+            const listContainer = document.getElementById('posts-list');
+            listContainer.innerHTML = '';
+
+            if (catData.posts.length === 0) {
+                listContainer.innerHTML = '<p style="color:#777; font-style:italic; padding: 10px;">Brak postów w tej kategorii.</p>';
+            }
+
+            catData.posts.forEach(post => {
+                let mediaHtml = '';
+                if (post.type === 'youtube') {
+                    mediaHtml = `<div class="video-box"><iframe src="${post.src}" frameborder="0" allowfullscreen></iframe></div>`;
+                } else if (post.type === 'mp4') {
+                    mediaHtml = `<div class="video-box"><video controls src="${post.src}"></video></div>`;
+                }
+
+                let deleteBtnHtml = '';
+                if (loggedInAdmin) {
+                    deleteBtnHtml = `<button class="delete-btn" onclick="deletePost('${catKey}', '${post.id}')">[Usuń post]</button>`;
+                }
+
+                let div = document.createElement('div');
+                div.className = 'post-item';
+                div.innerHTML = `
+                    <div class="vote-box">
+                        <div class="vote-arrow">▲</div>
+                        <div>1</div>
+                        <div class="vote-arrow">▼</div>
+                    </div>
+                    <div class="post-details">
+                        <a href="#" class="post-title-link" onclick="return false;">${post.title}</a>
+                        <div class="post-meta">zamieszczone przez ${post.author} w dniu ${post.date}</div>
+                        <div class="post-body">${post.desc}</div>
+                        ${mediaHtml}
+                        ${deleteBtnHtml}
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+
+            if (catKey === 'regulamin' && !loggedInAdmin) {
+                let adminPanelDiv = document.createElement('div');
+                adminPanelDiv.className = 'admin-login-panel';
+                adminPanelDiv.innerHTML = `
+                    <h3 style="font-weight:bold; margin-bottom:5px; color:#c00;">Log-In (Admin)</h3>
+                    <p style="font-size:10px; color:#555; margin-bottom:8px;">Wprowadź dane autoryzacyjne administratora:</p>
+                    <label style="font-size:10px;">Login:</label>
+                    <input type="text" id="admin-user-input" placeholder="Wpisz login...">
+                    <label style="font-size:10px;">Hasło:</label>
+                    <input type="password" id="admin-pass-input" placeholder="Wpisz hasło...">
+                    <button onclick="handleAdminLogin()" style="padding:3px 10px; background:#ddd; border:1px solid #999; cursor:pointer;">Zaloguj jako Admin</button>
+                    <div id="admin-login-error" style="color:red; font-size:10px; margin-top:5px; display:none;">Błędny login lub hasło!</div>
+                `;
+                listContainer.appendChild(adminPanelDiv);
+            }
+        }
+
+        function handleAdminLogin() {
+            let uInput = document.getElementById('admin-user-input').value;
+            let pInput = document.getElementById('admin-pass-input').value;
+
+            let found = adminsDB.find(a => a.username === uInput && a.pass === pInput);
+
+            if (found) {
+                loggedInAdmin = found;
+                localStorage.setItem('active_admin', JSON.stringify(loggedInAdmin));
+                updateUserStatusDisplay();
+                renderCategory(activeCategory);
+            } else {
+                document.getElementById('admin-login-error').style.display = 'block';
+            }
+        }
+
+        function logoutAdmin() {
+            loggedInAdmin = null;
+            localStorage.removeItem('active_admin');
+            updateUserStatusDisplay();
+            renderCategory(activeCategory);
+        }
+
+        function updateUserStatusDisplay() {
+            let statusDisplay = document.getElementById('user-status-display');
+            let adminBox = document.getElementById('admin-management-box');
+
+            if (loggedInAdmin) {
+                statusDisplay.innerHTML = `Zalogowany: <b>${loggedInAdmin.username}</b> (${loggedInAdmin.role === 'head' ? 'Head-Admin' : 'Admin'}) | <a href="#" onclick="logoutAdmin(); return false;">Wyloguj</a>`;
+                
+                if (loggedInAdmin.role === 'head') {
+                    adminBox.style.display = 'block';
+                    renderAdminManagementList();
+                } else {
+                    adminBox.style.display = 'none';
+                }
+            } else {
+                statusDisplay.innerHTML = `Tryb: Gość`;
+                adminBox.style.display = 'none';
+            }
+        }
+
+        async function deletePost(catKey, postId) {
+            if (confirm("Czy na pewno chcesz usunąć ten post? Zmiana zostanie zapisana na GitHubie dla wszystkich.")) {
+                currentDatabase[catKey].posts = currentDatabase[catKey].posts.filter(p => p.id !== postId);
+                
+                // Zapisz zmianę bezpośrednio na GitHubie
+                await saveToGitHub();
+                renderCategory(catKey);
+            }
+        }
+
+        // Funkcja wysyłająca zaktualizowany kod pliku index.html do GitHub API
+        async function saveToGitHub() {
+            const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/index.html`;
+
+            try {
+                // 1. Pobierz aktualny SHA pliku na GitHubie (wymagane przez API do nadpisania)
+                let response = await fetch(url, {
+                    headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+                });
+                let fileData = await response.json();
+                let sha = fileData.sha;
+
+                // 2. Wygeneruj nową treść pliku HTML ze zaktualizowaną bazą danych
+                let updatedHtmlCode = document.documentElement.outerHTML;
+                
+                // Zakoduj treść do formatu Base64
+                let encodedContent = btoa(unescape(encodeURIComponent(updatedHtmlCode)));
+
+                // 3. Wyślij żądanie aktualizacji pliku
+                let updateResponse = await fetch(url, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `token ${GITHUB_TOKEN}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        message: "Aktualizacja bazy postów (usunięto element)",
+                        content: encodedContent,
+                        sha: sha
+                    })
+                });
+
+                if (updateResponse.ok) {
+                    alert("Zmiana została pomyślnie zsynchronizowana z GitHubem!");
+                } else {
+                    alert("Błąd podczas zapisywania na GitHubie. Sprawdź poprawność Tokena.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Wystąpił błąd sieciowy podczas zapisu.");
+            }
+        }
+
+        function renderAdminManagementList() {
+            let container = document.getElementById('admin-list-container');
+            container.innerHTML = '';
+
+            adminsDB.forEach(adm => {
+                if(adm.role === 'head') return;
+
+                let row = document.createElement('div');
+                row.style.cssText = "display: flex; justify-content: space-between; align-items: center; font-size:11px; margin-bottom:5px; background:#fff; padding:3px; border:1px solid #ddd;";
+                row.innerHTML = `
+                    <span>${adm.username}</span>
+                    <button onclick="revokeAdmin('${adm.username}')" style="background:#ffcccc; border:1px solid red; color:red; cursor:pointer; font-size:9px; padding:1px 4px;">Usuń uprawnienia</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function revokeAdmin(usernameToRevoke) {
+            if(confirm(`Czy na pewno chcesz odebrać uprawnienia administratora użytkownikowi: ${usernameToRevoke}?`)) {
+                adminsDB = adminsDB.filter(a => a.username !== usernameToRevoke);
+                renderAdminManagementList();
+                alert("Uprawnienia zostały cofnięte.");
+            }
+        }
+    </script>
+</body>
+</html>
