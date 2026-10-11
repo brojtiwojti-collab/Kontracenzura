@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Archiwum - v0.3 [GitHub API Sync]</title>
+    <title>KontrCenzura</title>
     <style>
         :root {
             --bg-color: #f0f0f0;
@@ -89,7 +89,7 @@
 
         .retro-header {
             background: var(--header-bg);
-            padding: 5px 10px;
+            padding: 8px 10px;
             border: 1px solid #999;
             margin-bottom: 10px;
             display: flex;
@@ -98,9 +98,10 @@
         }
 
         .retro-header h1 {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             color: #000;
+            letter-spacing: 0.5px;
         }
 
         .user-status {
@@ -118,6 +119,42 @@
             .layout-grid {
                 grid-template-columns: 1fr;
             }
+        }
+
+        /* Formularz dodawania posta */
+        .add-post-panel {
+            background: #eef4f9;
+            border: 1px solid #7f9db9;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .add-post-panel h3 {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #003366;
+        }
+
+        .add-post-panel input, .add-post-panel textarea, .add-post-panel select {
+            width: 100%;
+            padding: 4px;
+            margin-bottom: 8px;
+            border: 1px solid #7f9db9;
+            background: #fff;
+        }
+
+        .add-post-panel button {
+            padding: 4px 12px;
+            background: #003366;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .add-post-panel button:hover {
+            background: #002244;
         }
 
         .post-item {
@@ -261,12 +298,37 @@
 
     <div id="main-content">
         <div class="retro-header">
-            <h1>archiwum.local // 2000s retro view</h1>
+            <h1>KontrCenzura</h1>
             <div id="user-status-display" class="user-status">Tryb: Gość</div>
         </div>
 
         <div class="layout-grid">
             <div>
+                <!-- FORMULARZ DODAWANIA POSTA (WIDOCZNY TYLKO DLA ADMINA) -->
+                <div id="add-post-container" class="add-post-panel" style="display:none;">
+                    <h3>+ Dodaj nowy post (Admin)</h3>
+                    <label style="font-size:10px;">Kategoria:</label>
+                    <select id="new-post-category">
+                        <option value="wypadki">Wypadki Drogowe</option>
+                        <option value="ataki">Ataki I Zbrodnie</option>
+                        <option value="regulamin">Regulamin Strony</option>
+                    </select>
+                    
+                    <label style="font-size:10px;">Tytuł posta:</label>
+                    <input type="text" id="new-post-title" placeholder="Wpisz tytuł...">
+                    
+                    <label style="font-size:10px;">Autor:</label>
+                    <input type="text" id="new-post-author" placeholder="Nazwa autora...">
+
+                    <label style="font-size:10px;">Treść / Opis:</label>
+                    <textarea id="new-post-desc" rows="3" placeholder="Wpisz treść..."></textarea>
+
+                    <label style="font-size:10px;">Link do wideo (Opcjonalnie - YouTube embed lub plik .mp4):</label>
+                    <input type="text" id="new-post-video" placeholder="https://www.youtube.com/embed/...">
+
+                    <button onclick="createNewPost()">Opublikuj i Zapisz na GitHubie</button>
+                </div>
+
                 <h2 id="section-heading" style="font-size: 14px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #ccc; padding-bottom: 3px;">Wypadki Drogowe</h2>
                 <div id="posts-list"></div>
             </div>
@@ -292,11 +354,12 @@
 
     <script>
         // ==========================================
-        // KONFIGURACJA GITHUB API (Wpisz swoje dane)
+        // KONFIGURACJA GITHUB API
+        // Uzupełnij poniższe pola swoimi danymi:
         // ==========================================
         const GITHUB_USERNAME = "TWÓJ_LOGIN_GITHUB";
         const GITHUB_REPO = "NAZWA_REPOZYTORIUM";
-        const GITHUB_TOKEN = "TWÓJ_WYGENEROWANY_TOKEN_GITHUB";
+        const GITHUB_TOKEN = "";
         // ==========================================
 
         const SITE_PASSWORD_CORRECT = "SpecjalneAdministratorstwopl";
@@ -483,10 +546,13 @@
         function updateUserStatusDisplay() {
             let statusDisplay = document.getElementById('user-status-display');
             let adminBox = document.getElementById('admin-management-box');
+            let addPostBox = document.getElementById('add-post-container');
 
             if (loggedInAdmin) {
                 statusDisplay.innerHTML = `Zalogowany: <b>${loggedInAdmin.username}</b> (${loggedInAdmin.role === 'head' ? 'Head-Admin' : 'Admin'}) | <a href="#" onclick="logoutAdmin(); return false;">Wyloguj</a>`;
-                
+                addPostBox.style.display = 'block';
+                document.getElementById('new-post-author').value = loggedInAdmin.username;
+
                 if (loggedInAdmin.role === 'head') {
                     adminBox.style.display = 'block';
                     renderAdminManagementList();
@@ -496,38 +562,75 @@
             } else {
                 statusDisplay.innerHTML = `Tryb: Gość`;
                 adminBox.style.display = 'none';
+                addPostBox.style.display = 'none';
             }
+        }
+
+        async function createNewPost() {
+            let targetCat = document.getElementById('new-post-category').value;
+            let title = document.getElementById('new-post-title').value.trim();
+            let author = document.getElementById('new-post-author').value.trim() || loggedInAdmin.username;
+            let desc = document.getElementById('new-post-desc').value.trim();
+            let videoUrl = document.getElementById('new-post-video').value.trim();
+
+            if (!title || !desc) {
+                alert("Wypełnij przynajmniej tytuł i opis posta!");
+                return;
+            }
+
+            let type = 'text';
+            if (videoUrl) {
+                if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
+                    type = 'youtube';
+                } else {
+                    type = 'mp4';
+                }
+            }
+
+            let newPostObj = {
+                id: 'post_' + Date.now(),
+                title: title,
+                date: new Date().toLocaleDateString('pl-PL'),
+                author: author,
+                desc: desc,
+                type: type,
+                src: videoUrl
+            };
+
+            currentDatabase[targetCat].posts.unshift(newPostObj);
+
+            // Wyczyszczenie pola tekstowego
+            document.getElementById('new-post-title').value = '';
+            document.getElementById('new-post-desc').value = '';
+            document.getElementById('new-post-video').value = '';
+
+            // Zapisz bezpośrednio na GitHubie
+            await saveToGitHub();
+            renderCategory(activeCategory);
         }
 
         async function deletePost(catKey, postId) {
             if (confirm("Czy na pewno chcesz usunąć ten post? Zmiana zostanie zapisana na GitHubie dla wszystkich.")) {
                 currentDatabase[catKey].posts = currentDatabase[catKey].posts.filter(p => p.id !== postId);
-                
-                // Zapisz zmianę bezpośrednio na GitHubie
                 await saveToGitHub();
                 renderCategory(catKey);
             }
         }
 
-        // Funkcja wysyłająca zaktualizowany kod pliku index.html do GitHub API
+        // Zapis stanu pliku bezpośrednio na GitHubie
         async function saveToGitHub() {
             const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/index.html`;
 
             try {
-                // 1. Pobierz aktualny SHA pliku na GitHubie (wymagane przez API do nadpisania)
                 let response = await fetch(url, {
                     headers: { "Authorization": `token ${GITHUB_TOKEN}` }
                 });
                 let fileData = await response.json();
                 let sha = fileData.sha;
 
-                // 2. Wygeneruj nową treść pliku HTML ze zaktualizowaną bazą danych
                 let updatedHtmlCode = document.documentElement.outerHTML;
-                
-                // Zakoduj treść do formatu Base64
                 let encodedContent = btoa(unescape(encodeURIComponent(updatedHtmlCode)));
 
-                // 3. Wyślij żądanie aktualizacji pliku
                 let updateResponse = await fetch(url, {
                     method: "PUT",
                     headers: {
@@ -535,20 +638,20 @@
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        message: "Aktualizacja bazy postów (usunięto element)",
+                        message: "Aktualizacja bazy (dodanie/usunięcie posta)",
                         content: encodedContent,
                         sha: sha
                     })
                 });
 
                 if (updateResponse.ok) {
-                    alert("Zmiana została pomyślnie zsynchronizowana z GitHubem!");
+                    alert("Zmiana została pomyślnie zapisana na GitHubie!");
                 } else {
-                    alert("Błąd podczas zapisywania na GitHubie. Sprawdź poprawność Tokena.");
+                    alert("Błąd podczas zapisywania na GitHubie. Upewnij się, że wpisałeś swój GITHUB_USERNAME i GITHUB_REPO w kodzie.");
                 }
             } catch (err) {
                 console.error(err);
-                alert("Wystąpił błąd sieciowy podczas zapisu.");
+                alert("Wystąpił błąd podczas zapisywania.");
             }
         }
 
